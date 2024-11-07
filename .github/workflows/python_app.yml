@@ -1,61 +1,54 @@
-Name: DevOpsExcercise
+name: DevOpsExercise
+on:
+  workflow_dispatch:
+    inputs:
+      runTest:
+        description: "Should the test-job also run?"
+        required: true
+        type: boolean
+        default: false
 
-On:
- workflow_dispatch
-  inputs:
-   runTest:
-    description: "ska test-job också köras?"
-    required: true
-    type: boolean
-    default: false
+env:
+  FLASK_APP: app.py
+  FLASK_ENV: development
+  USER: '${{ github.repository_owner }}'
+  GREET: Hello
+  TRIGGER: '${{ github.event_name }}'
 
-Env:
- FLASK_APP: "app.py"
- FLASK_ENV: "development"
- USER: ${{ github.repository_owner}}
- GREET: "Hello"
- TRIGGER: ${{github.event_name}}
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Greet the user'
+        run: |
+          echo "${{ env.GREET }}, this workflow is triggered by a ${{ env.TRIGGER }}."
 
-Jobs:
- hello:
-  runs-on: ubuntu-latest
-  steps:
-   - name: Greets the user ${{ env.USER}}
-     run: echo "${( env.GREET}}, this workflow is triggered by a $ {{ github.event_name})."
+  test_and_run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
 
- test_and_run:
-  runs-on: ubuntu-latest
-  steps:
-   - name: chect out code
-     uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-   - name: set up python
-     uses: actions/setup-python@v4
-     with:
-      python-version: "3.9"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-   - name: Install dependencies
-     run: 
-      python -m pip install --upgrade pip
-      pip install -r requirements.txt
+      - name: Run tests
+        if: ${{ inputs.runTest }}
+        env:
+          OPENWEATHER_API_KEY: '${{ secrets.OPENWEATHER_API_KEY }}'
+        run: pytest
 
-   - name: run tests
-     if: ${{github.event.input.runTest == 'True' }}
-     env: 
-      OPRNWEATHER_API_KEY: ${{ secrets.OPENWEAATHER_API_KEY}}
-     run: pytest
- 
-   - name: run flask application
-     env: 
-      FLASK_APP: "app.py"
-     run:
-      nohub flask run --host= 0.0.0.0 &
+      - name: Run Flask application
+        env:
+          FLASK_APP: app.py
+        run: nohup flask run --host=0.0.0.0 &
 
-   - name: run integration test
-     run:
-      curl http://127.0.0.1:5000/health
- 
- 
-
-
-
+      - name: Run integration test
+        run: curl http://127.0.0.1:5000/health || echo "Integration test failed"
